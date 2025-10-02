@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Subtle grid dots & lines */
+.gantt-bg {
+  background-image: linear-gradient(
+      to right,
+      rgba(199, 12, 12, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(236, 219, 219, 0.04) 1px, transparent 1px);
+  background-size: 60px 32px; /* 30-min width × row height */
+}

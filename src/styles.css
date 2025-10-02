@@ -1,0 +1,308 @@
+:root {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --grid: #e2e8f0;
+  --gridMinor: #f1f5f9;
+  --text: #1e293b;
+  --muted: #64748b;
+  --barText: #ffffff;
+  --turnaround: rgba(0, 0, 0, 0.06); /* subtle neutral for gaps */
+  --barRadius: 10px;
+  --label-col: 60px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+    "Helvetica Neue", sans-serif;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.controls input[type="date"] {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: var(--text);
+}
+.controls button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+}
+.week-range {
+  color: var(--muted);
+}
+
+.error {
+  color: #ef4444;
+  margin: 12px 0;
+}
+.empty {
+  color: var(--muted);
+  margin-top: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.tab {
+  background: var(--panel);
+  border: 1px solid #e2e8f0;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.tab.active {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.gantt {
+  background: var(--panel);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 1200px;
+}
+
+/* ── Timeline ───────────────────────────────── */
+.timeline {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--label-col) 1fr;
+  border-bottom: 1px solid var(--grid);
+  overflow: hidden;
+}
+.ticks-30 {
+  position: relative;
+  height: 36px;
+}
+.tick-30 {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  pointer-events: none;
+}
+.tick-30.half {
+  background: var(--gridMinor);
+} /* every 30 min */
+.tick-30.hour {
+  background: var(--grid);
+} /* every hour */
+
+.tick-label {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── Rows & lane grid ──────────────────────── */
+.day-row {
+  display: grid;
+  grid-template-columns: var(--label-col) 1fr;
+  min-height: 52px;
+}
+.day-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-right: 1px solid var(--grid);
+  background: #f8fafc;
+}
+.lane {
+  position: relative;
+  border-bottom: 1px solid var(--grid);
+}
+.lane .tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--gridMinor);
+  pointer-events: none;
+}
+.lane .tick:nth-child(odd) {
+  background: var(--grid);
+}
+
+/* ── Bars & turnaround ─────────────────────── */
+.bar {
+  position: absolute;
+  top: 8px;
+  height: 36px;
+  border-radius: var(--barRadius);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--barText);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+.bar.continues:after {
+  content: "→";
+  margin-left: 6px;
+  opacity: 0.9;
+}
+.bar .bar-label {
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* lane-level turnaround shading (gap after arrival) */
+.turnaround-gap {
+  position: relative;
+  top: 12px;
+  height: 28px;
+  background: var(--turnaround);
+  border-radius: var(--barRadius);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── (Optional) cards & forms you already have ─────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 8px 0 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.form {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+.form.grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.form .span-2 {
+  grid-column: span 2;
+}
+.form .actions {
+  display: flex;
+  gap: 12px;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+input,
+select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: var(--text);
+}
+fieldset {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+legend {
+  color: var(--muted);
+  padding: 0 8px;
+}
+.primary {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.days {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.chip.active {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+.success {
+  margin-top: 10px;
+  color: #10b981;
+}
+.error {
+  margin-top: 10px;
+  color: #ef4444;
+}
+.main-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.main-tabs button {
+  background: #f1f5f9;
+  color: var(--text);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.main-tabs button.active {
+  background: #e2e8f0;
+}
