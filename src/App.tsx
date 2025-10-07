@@ -1,64 +1,62 @@
-import React, { useEffect, useState } from 'react'
-import dayjs from 'dayjs'
-import { fetchGantt } from './api/client'
-import type { GanttResponse } from './types'
-import GanttChart from './components/GanttChart'
+import { useEffect, useMemo, useState } from 'react';
+import { AppShell } from './pages/AppShell';
+
+import SchedulePage from './pages/SchedulePage';
+import RoundTripsPage from './pages/RoundTripsPage';
+import AssignmentsPage from './pages/AssignmentsPage';
+import AircraftPage from './pages/AircraftPage';
+
+type NavKey = 'SCHEDULE' | 'ROUND_TRIPS' | 'ASSIGNMENTS' | 'AIRCRAFT';
 
 export default function App() {
-  const [date, setDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
-  const [data, setData] = useState<GanttResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+    const [active, setActive] = useState<NavKey>('SCHEDULE');
 
-  const load = async (d: string) => {
-    setLoading(true); setError(null)
-    try {
-      const res = await fetchGantt(d)
-      setData(res)
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to load')
-    } finally {
-      setLoading(false)
-    }
-  }
+    // Start on hash if present (e.g., /#AIRCRAFT). Fallback to last saved tab.
+    useEffect(() => {
+        const fromHash = (location.hash.replace('#', '') as NavKey) || null;
+        const fromStorage = (localStorage.getItem('activeNav') as NavKey) || null;
+        const initial = (fromHash && isNavKey(fromHash)) ? fromHash
+            : (fromStorage && isNavKey(fromStorage)) ? fromStorage
+                : 'SCHEDULE';
+        setActive(initial);
+    }, []);
 
-  useEffect(() => { load(date) }, []) // initial
+    // Keep URL hash in sync for deep links
+    useEffect(() => {
+        if (active) location.hash = active;
+    }, [active]);
 
-  return (
-    <div className="page">
-      <header className="header">
-        <h1>Weekly Flight Schedule (CMB Local)</h1>
-        <div className="controls">
-          <label>Week date:&nbsp;
-            <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-          </label>
-          <button onClick={() => load(date)} disabled={loading}>
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
-          {data && (
-            <div className="week-range">
-              {dayjs(data.weekStart).format('DD MMM YYYY')} – {dayjs(data.weekEnd).format('DD MMM YYYY')}
-            </div>
-          )}
+    const rightContent = useMemo(() => (
+        <div className="kbd-hint">
+            <kbd>G</kbd> + <kbd>S/R/A/F</kbd>
         </div>
-      </header>
+    ), []);
 
-      {error && <div className="error">{error}</div>}
+    return (
+        <AppShell active={active} onChange={setActive} rightContent={rightContent}>
+            {active === 'SCHEDULE' && <SchedulePage />}
 
-      {!loading && data && data.aircraft.length === 0 && (
-        <div className="empty">No aircraft assigned for this week.</div>
-      )}
+            {active === 'ROUND_TRIPS' && (
+                <div className="page">
+                    <RoundTripsPage />
+                </div>
+            )}
 
-      {/* Render ALL aircraft, stacked */}
-      {data?.aircraft.map(a => (
-        <section key={a.aircraftId} className="aircraft-section">
-          <div className="aircraft-heading">
-            <div className="aircraft-tail">{a.tail}</div>
-            <div className="aircraft-meta">Aircraft ID: {a.aircraftId}</div>
-          </div>
-          <GanttChart aircraft={a} />
-        </section>
-      ))}
-    </div>
-  )
+            {active === 'ASSIGNMENTS' && (
+                <div className="page">
+                    <AssignmentsPage />
+                </div>
+            )}
+
+            {active === 'AIRCRAFT' && (
+                <div className="page">
+                    <AircraftPage />
+                </div>
+            )}
+        </AppShell>
+    );
+}
+
+function isNavKey(v: string): v is NavKey {
+    return v === 'SCHEDULE' || v === 'ROUND_TRIPS' || v === 'ASSIGNMENTS' || v === 'AIRCRAFT';
 }
