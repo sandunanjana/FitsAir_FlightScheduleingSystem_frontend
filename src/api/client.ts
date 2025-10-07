@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Aircraft, Assignment, GanttResponse, RoundTrip, TripColor, DayOfWeek } from '../types'
+import type { Aircraft, Assignment, GanttResponse, RoundTrip, TripColor, DayOfWeek } from '../types/types'
 
 const api = axios.create({
     baseURL: '/api',
