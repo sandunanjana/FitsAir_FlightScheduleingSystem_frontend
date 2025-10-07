@@ -1425,13 +1425,6 @@ button {
 }
 
 /* Vertical grid ticks (30-min) inside lanes */
-.lane .tick {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--grid-minor);
-}
 
 .lane .tick:nth-child(2n) {
   background: var(--grid-major);
@@ -1679,7 +1672,6 @@ button {
   background: var(--grid-major); /* half-hour */
 }
 
-
 .tick-line {
   position: absolute;
   top: 22px;
@@ -1691,9 +1683,7 @@ button {
   background: var(--grid-major);
 }
 
-.timeline-tick 
-
-.tick-label {
+.timeline-tick .tick-label {
   position: absolute;
   top: 12px;
   font-size: 10px;
@@ -1777,7 +1767,7 @@ button {
   top: 0;
   bottom: -20px;
   width: 1px;
-  background: var(--grid-minor); /* half-hour */
+  background: var(--grid-major); /* half-hour */
 }
 .gantt-tick:nth-child(odd) {
   background: var(--grid-major); /* hour line */
@@ -1904,7 +1894,11 @@ button {
     padding: 0.75rem 0.5rem;
   }
   .gantt-lane {
-    height: 70px;
+    position: relative;
+    flex: 1;
+    height: 80px; /* or your var(--lane-h) */
+    background: #fff; /* keep clean, lines are separate elements */
+    overflow: hidden; /* hides the last pixel on narrow screens */
   }
   .gantt-bar {
     height: 45px;
@@ -2095,4 +2089,42 @@ button {
   }
 }
 
+/* main two-column layout: fixed days + scrollable timeline */
+.gantt-main {
+  display: flex;
+  width: 100%;
+}
+.gantt-fixed-col {
+  background: #f8fafc;
+  border-right: 1px solid var(--grid);
+  flex-shrink: 0;
+}
 
+/* day label cell in fixed column */
+.gantt-day-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #111827;
+  border-bottom: 1px solid var(--grid);
+}
+
+.gantt-scroll-content {
+  min-width: 4500px;
+  position: relative;
+}
+
+/* stronger hour-like separators */
+.gantt-lane::before,
+.gantt-lane::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--grid-major); /* same tone as your hour line */
+  pointer-events: none;
+}
+.gantt-lane::before { top: 0; }
+.gantt-lane::after  { bottom: 0; }
