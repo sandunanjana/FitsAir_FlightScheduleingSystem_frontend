@@ -17,8 +17,14 @@ export default function AircraftPage() {
             const res = await createAircraft({ tail: tail.trim(), type: type.trim() || undefined });
             setCreated(res);
             setTail(""); setType("");
-        } catch (err: any) {
-            setError(err?.response?.data?.message ?? err?.message ?? "Failed");
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err && err.response && typeof err.response === "object" && "data" in err.response && err.response.data && typeof err.response.data === "object" && "message" in err.response.data) {
+                setError((err as { response: { data: { message?: string } } }).response.data.message ?? "Failed");
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Failed");
+            }
         } finally {
             setLoading(false);
         }

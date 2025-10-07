@@ -16,8 +16,12 @@ export default function SchedulePage() {
         try {
             const res = await fetchGantt(d);
             setData(res);
-        } catch (e: any) {
-            setError(e?.message ?? "Failed to load");
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                setError(e.message);
+            } else {
+                setError("Failed to load");
+            }
         } finally {
             setLoading(false);
         }
@@ -58,13 +62,21 @@ export default function SchedulePage() {
                 <div className="empty">No aircraft assigned for this week.</div>
             )}
 
-            {data?.aircraft.map((a) => (
-                // ⬇️ removed the external aircraft heading;
-                // pass tail & aircraftId so GanttChart can show them in its header
-                <section key={a.aircraftId} className="aircraft-section">
-                    <GanttChart aircraft={a} />
-                </section>
-            ))}
+            {data?.aircraft.map((a) => {
+                // Map bars to ensure turnaroundMins is never null
+                const fixedAircraft = {
+                    ...a,
+                    bars: a.bars.map(bar => ({
+                        ...bar,
+                        turnaroundMins: bar.turnaroundMins === null ? undefined : bar.turnaroundMins,
+                    })),
+                };
+                return (
+                    <section key={a.aircraftId} className="aircraft-section">
+                        <GanttChart aircraft={fixedAircraft} />
+                    </section>
+                );
+            })}
         </div>
     );
 }

@@ -28,8 +28,13 @@ export default function AssignmentsPage() {
             });
             setCreated(res);
             setRoundTripId(""); setMinTurn("");
-        } catch (err: any) {
-            setError(err?.response?.data?.message ?? err?.message ?? "Failed");
+        } catch (err: unknown) {
+            if (typeof err === "object" && err !== null) {
+                const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
+                setError(errorObj.response?.data?.message ?? errorObj.message ?? "Failed");
+            } else {
+                setError("Failed");
+            }
         } finally {
             setLoading(false);
         }
