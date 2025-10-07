@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { fetchGantt } from "../api/client";
 import type { GanttResponse } from "../types/types";
