@@ -5,3 +5,14 @@
     { "path": "./tsconfig.node.json" }
   ]
 }
+
+// {
+//   "extends": "./tsconfig.json",
+//   "compilerOptions": {
+//     "jsx": "react-jsx",
+//     "module": "ESNext",
+//     "target": "ESNext",
+//     "moduleResolution": "Node"
+//   },
+//   "include": ["src"]
+// }
