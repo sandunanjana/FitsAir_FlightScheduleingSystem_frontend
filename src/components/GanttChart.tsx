@@ -1,19 +1,28 @@
 import React, { useMemo, useRef, useState } from "react";
 import type { DAY_ORDER } from "../util/time";
 
-/** ------------ Types ------------ */
+/** ------------ Types (extended) ------------ */
 type TripColor =
     | "BLUE" | "GREEN" | "ORANGE" | "PURPLE" | "TEAL"
     | "PINK" | "BROWN" | "CYAN" | "LIME" | "RED";
 
 export type GanttBar = {
     day: keyof typeof DAY_ORDER;
-    startMinute: number; // 0..1440
-    endMinute: number;   // 0..1440
-    label: string;       // e.g. "CMB → DXB"
+    startMinute: number; // 0..1440 (CMB local)
+    endMinute: number;   // 0..1440 (CMB local)
+    label: string;       // e.g. "CMB → DXB 8D821"
     color: TripColor;
     continuesNextDay?: boolean;
-    turnaroundMins?: number;
+
+    /** present for inbound bars when backend computed a turnaround */
+    turnaroundMins?: number | null;
+
+    /** NEW optional metadata from backend: */
+    requiredTurnaroundMins?: number | null;
+    turnaroundOk?: boolean | null;
+    depCurfewViolation?: boolean | null;
+    arrCurfewViolation?: boolean | null;
+
     tripId?: number | string;
 };
 
@@ -67,9 +76,14 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
         const m = totalMinutes % 60;
         return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     };
-    const parseRoute = (label: string): { from?: string; to?: string } => {
-        const m = label.match(/\b([A-Z]{3})\s*→\s*([A-Z]{3})\b/);
-        return m ? { from: m[1], to: m[2] } : {};
+    const parseRoute = (label: string): { from?: string; to?: string; fn?: string } => {
+        // expects labels like "CMB→DXB 8D821" or "CMB → DXB 8D821"
+        const m = label.match(/\b([A-Z]{3})\s*→\s*([A-Z]{3})\s*([A-Za-z0-9]*)?$/);
+        if (m) {
+            return { from: m[1], to: m[2], fn: m[3] || undefined };
+        }
+        const m2 = label.match(/\b([A-Z]{3})\s*→\s*([A-Z]{3})\b/);
+        return m2 ? { from: m2[1], to: m2[2] } : {};
     };
 
     /** Colors */
@@ -108,36 +122,29 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
             [bars, dayKey]
         );
 
-        // Detect turnaround when we have a trip that goes HUB->X then X->HUB with a gap at the intermediate station
-        const HUB = "CMB";
-        const gaps = useMemo(() => {
-            const out: { leftPct: number; widthPct: number; title: string; mins: number }[] = [];
-            for (let i = 0; i < dayBars.length - 1; i++) {
-                const a = dayBars[i];
-                const b = dayBars[i + 1];
-                if (!a.tripId || !b.tripId || a.tripId !== b.tripId) continue;
+        // Compute turnaround overlays for inbound bars with backend-provided values
+        const turns = useMemo(() => {
+            const items: {
+                leftPct: number; widthPct: number; title: string;
+                ok?: boolean | null; mins: number;
+            }[] = [];
 
-                const aR = parseRoute(a.label);
-                const bR = parseRoute(b.label);
-                if (!aR.from || !aR.to || !bR.from || !bR.to) continue;
+            for (const b of dayBars) {
+                if (typeof b.turnaroundMins !== "number" || b.turnaroundMins <= 0) continue;
+                const turnStart = b.startMinute - b.turnaroundMins;
+                if (turnStart < 0) continue; // if previous day, we skip in this day lane
+                const leftPct = minutesToLeftPercent(turnStart);
+                const widthPct = minutesToWidthPercent(turnStart, b.startMinute);
 
-                const isOutboundThenInbound =
-                    aR.from === HUB &&
-                    aR.to !== HUB &&
-                    bR.from === aR.to &&
-                    bR.to === HUB;
+                const gap = b.turnaroundMins;
+                const req = (typeof b.requiredTurnaroundMins === "number") ? b.requiredTurnaroundMins : undefined;
+                const ok = typeof b.turnaroundOk === "boolean" ? b.turnaroundOk : (req ? gap >= req : undefined);
 
-                const gapMins = b.startMinute - a.endMinute;
-                if (isOutboundThenInbound && gapMins > 0) {
-                    out.push({
-                        leftPct: minutesToLeftPercent(a.endMinute),
-                        widthPct: minutesToWidthPercent(0, gapMins),
-                        title: `Turnaround: ${gapMins} min`,
-                        mins: gapMins,
-                    });
-                }
+                const title = `Turnaround: ${gap}m` + (req ? ` / required ${req}m` : "") + (ok === undefined ? "" : ok ? " • OK" : " • Not enough");
+
+                items.push({ leftPct, widthPct, title, ok, mins: gap });
             }
-            return out;
+            return items;
         }, [dayBars]);
 
         // Grid: draw only 0..23:30 (48 marks) as verticals inside the 24h lane
@@ -154,15 +161,22 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
                     />
                 ))}
 
-                {/* turnaround overlays */}
-                {gaps.map((g, i) => (
+                {/* turnaround overlays (colored by OK / NOT OK) */}
+                {turns.map((t, i) => (
                     <div
-                        key={`gap-${i}`}
+                        key={`turn-${i}`}
                         className="turnaround-indicator"
-                        style={{ left: `${g.leftPct}%`, width: `${g.widthPct}%` }}
-                        title={g.title}
+                        style={{
+                            left: `${t.leftPct}%`,
+                            width: `${t.widthPct}%`,
+                            background: t.ok === false ? "rgba(239,68,68,0.22)" : t.ok === true ? "rgba(34,197,94,0.22)" : "#fef3c7",
+                            borderColor: t.ok === false ? "rgba(239,68,68,0.6)" : t.ok === true ? "rgba(34,197,94,0.6)" : "#f59e0b",
+                        }}
+                        title={t.title}
                     >
-                        <div className="turnaround-label">{g.mins}m</div>
+                        <div className="turnaround-label">
+                            {t.mins}m
+                        </div>
                     </div>
                 ))}
 
@@ -174,6 +188,23 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
                     const borderColor = colorBorderMap[b.color];
                     const route = parseRoute(b.label);
 
+                    const hoverLines: string[] = [
+                        b.label,
+                        `Local ${formatHHMM(b.startMinute)}–${formatHHMM(b.endMinute)}`
+                    ];
+                    if (typeof b.turnaroundMins === "number") {
+                        const req = (typeof b.requiredTurnaroundMins === "number") ? b.requiredTurnaroundMins : undefined;
+                        const ok = typeof b.turnaroundOk === "boolean" ? b.turnaroundOk : (req ? b.turnaroundMins >= req : undefined);
+                        hoverLines.push(`Turnaround: ${b.turnaroundMins}m${req ? ` / required ${req}m` : ""}${ok === undefined ? "" : ok ? " • OK" : " • Not enough"}`);
+                    }
+                    if (b.depCurfewViolation || b.arrCurfewViolation) {
+                        const flags = [
+                            b.depCurfewViolation ? "DEP" : null,
+                            b.arrCurfewViolation ? "ARR" : null,
+                        ].filter(Boolean).join("/");
+                        hoverLines.push(`Curfew: ${flags}`);
+                    }
+
                     return (
                         <div
                             key={idx}
@@ -184,16 +215,18 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
                                 background: bg,
                                 borderLeft: `2px solid ${borderColor}`,
                                 borderRight: `2px solid ${borderColor}`,
+                                outline: (b.depCurfewViolation || b.arrCurfewViolation) ? "2px dashed rgba(239,68,68,0.9)" : undefined,
+                                outlineOffset: (b.depCurfewViolation || b.arrCurfewViolation) ? "1px" : undefined,
                             }}
-                            title={`${b.label} (${formatHHMM(b.startMinute)}–${formatHHMM(b.endMinute)})`}
+                            title={hoverLines.join(" • ")}
                         >
                             <div className="gantt-bar-content">
                                 <div className="flight-route">
-                                    <span className="airport-code">{route.from}</span>
+                                    <span className="airport-code">{route.from ?? "???"}</span>
                                     <svg width="12" height="12" viewBox="0 0 24 24" className="flight-arrow">
                                         <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" fill="none" />
                                     </svg>
-                                    <span className="airport-code">{route.to}</span>
+                                    <span className="airport-code">{route.to ?? "???"}</span>
                                 </div>
                                 <div className="flight-times">
                                     {formatHHMM(b.startMinute)}–{formatHHMM(b.endMinute)}
@@ -335,12 +368,13 @@ export default function GanttChart({ aircraft }: { aircraft: GanttAircraftDayRes
                             })}
                         </div>
 
-                        {/* Day lanes */}
+                        {/* Day lanes (no duplicate day header) */}
                         <div className="gantt-days">
                             {dayKeys.map((k) => (
                                 <DayLane key={k} dayKey={k} bars={aircraft.bars} />
                             ))}
                         </div>
+
                     </div>
                 </div>
             </div>
