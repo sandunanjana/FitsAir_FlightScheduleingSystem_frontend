@@ -1,10 +1,55 @@
 import axios from 'axios'
-import type { Aircraft, Assignment, GanttResponse, RoundTrip, TripColor, DayOfWeek } from '../types/types'
+import type { Aircraft, Assignment, GanttResponse, RoundTrip, TripColor, DayOfWeek, Airport } from '../types/types'
 
 const api = axios.create({
     baseURL: '/api',
     timeout: 15000
 })
+
+/** Airports */
+export async function listAirports() {
+    const { data } = await api.get<Airport[]>('/airports')
+    return data
+}
+export async function getAirport(id: number) {
+    const { data } = await api.get<Airport>(`/airports/${id}`)
+    return data
+}
+export async function createAirport(payload: { code: string; name?: string; curfews?: { days?: DayOfWeek[]; startUtc: string; endUtc: string }[] }) {
+    const { data } = await api.post<Airport>('/airports', payload)
+    return data
+}
+export async function updateAirport(id: number, payload: { code?: string; name?: string; curfews?: { days?: DayOfWeek[]; startUtc: string; endUtc: string }[] }) {
+    const { data } = await api.put<Airport>(`/airports/${id}`, payload)
+    return data
+}
+export async function deleteAirport(id: number) {
+    await api.delete(`/airports/${id}`)
+}
+
+/** Round Trip CRUD */
+export async function listRoundTrips() {
+    const { data } = await api.get<RoundTrip[]>('/schedule/round-trip')
+    return data
+}
+export async function getRoundTrip(id: number) {
+    const { data } = await api.get<RoundTrip>(`/schedule/round-trip/${id}`)
+    return data
+}
+export async function updateRoundTrip(id: number, payload: CreateRoundTripPayload) {
+    const { data } = await api.put<RoundTrip>(`/schedule/round-trip/${id}`, payload)
+    return data
+}
+export async function deleteRoundTrip(id: number) {
+    await api.delete(`/schedule/round-trip/${id}`)
+}
+
+/** Aircraft create now supports defaultTurnaroundMins */
+export async function createAircraft(payload: { tail: string; type?: string; defaultTurnaroundMins?: number }) {
+    const { data } = await api.post<Aircraft>('/aircraft', payload)
+    return data
+}
+
 
 /** Gantt */
 export async function fetchGantt(dateISO: string) {
@@ -12,11 +57,6 @@ export async function fetchGantt(dateISO: string) {
     return data
 }
 
-/** Aircraft */
-export async function createAircraft(payload: { tail: string; type?: string }) {
-    const { data } = await api.post<Aircraft>('/aircraft', payload)
-    return data
-}
 export async function listAircraft() {
     const { data } = await api.get<Aircraft[]>('/aircraft')
     return data
@@ -55,4 +95,18 @@ export async function assignRoundTrip(payload: {
 }) {
     const { data } = await api.post<Assignment>('/schedule/assign', payload)
     return data
+}
+
+// --- Aircraft CRUD additions ---
+export async function updateAircraft(
+  id: number,
+  payload: { tail?: string; type?: string }
+) {
+  const { data } = await api.put<Aircraft>(`/aircraft/${id}`, payload);
+  return data;
+}
+
+export async function deleteAircraft(id: number) {
+  const { data } = await api.delete<void>(`/aircraft/${id}`);
+  return data;
 }

@@ -38,6 +38,21 @@ export interface Assignment {
     minTurnaroundMins?: number | null;
 }
 
+export interface Curfew {
+    id: number;
+    days?: DayOfWeek[] | null; // null/empty => DAILY
+    startUtc: string;          // "HH:mm"
+    endUtc: string;            // "HH:mm"
+}
+
+export interface Airport {
+    country: string | undefined;
+    id: number;
+    code: string;
+    name?: string;
+    curfews: Curfew[];
+}
+
 /** Gantt types */
 export interface GanttBar {
     day: DayOfWeek;
@@ -49,6 +64,10 @@ export interface GanttBar {
     continuesNextDay: boolean;
     arrivalIsNextDay: boolean;
     turnaroundMins?: number | null;
+    requiredTurnaroundMins?: number | null;
+    turnaroundOk?: boolean | null;
+    depCurfewViolation?: boolean | null;
+    arrCurfewViolation?: boolean | null;
 }
 
 export interface GanttAircraftDayResponse {
@@ -61,4 +80,19 @@ export interface GanttResponse {
     aircraft: GanttAircraftDayResponse[];
     weekStart: string;
     weekEnd: string;
+}
+
+// Aircraft: add defaultTurnaroundMins
+export interface Aircraft {
+    id: number;
+    tail: string;
+    type?: string;
+    defaultTurnaroundMins?: number | null;
+}
+
+export interface CurfewRule {
+  id?: number;
+  dayOfWeek: DayOfWeek;       // e.g. "WEDNESDAY"
+  startUtc: string;           // "HH:mm"
+  endUtc: string;             // "HH:mm"
 }

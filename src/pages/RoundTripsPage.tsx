@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react'
-import { createRoundTrip, type CreateRoundTripPayload } from '../api/client'
-import type { RoundTrip, DayOfWeek, TripColor } from '../types/types'
-import PageLayout from '../components/layout/PageLayout'
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoundTrip, type CreateRoundTripPayload } from '../api/client';
+import { listAirports } from '../api/client';
+import type { RoundTrip, DayOfWeek, TripColor, Airport } from '../types/types';
+import PageLayout from '../components/layout/PageLayout';
 
-const WEEK: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
-const COLORS: TripColor[] = ['BLUE', 'GREEN', 'ORANGE', 'PURPLE', 'TEAL', 'PINK', 'BROWN', 'CYAN', 'LIME', 'RED']
+const WEEK: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const COLORS: TripColor[] = ['BLUE', 'GREEN', 'ORANGE', 'PURPLE', 'TEAL', 'PINK', 'BROWN', 'CYAN', 'LIME', 'RED'];
 
 const COLOR_MAP = {
     BLUE: { bg: '#3b82f6', text: '#ffffff' },
@@ -16,69 +17,114 @@ const COLOR_MAP = {
     BROWN: { bg: '#92400e', text: '#ffffff' },
     CYAN: { bg: '#06b6d4', text: '#ffffff' },
     LIME: { bg: '#84cc16', text: '#1f2937' },
-    RED: { bg: '#ef4444', text: '#ffffff' }
-}
+    RED: { bg: '#ef4444', text: '#ffffff' },
+} as const;
 
 export default function RoundTripsPage() {
     const [payload, setPayload] = useState<CreateRoundTripPayload>({
         outboundFlightNumber: '',
-        outboundOrigin: 'CMB',
+        outboundOrigin: '',
         outboundDestination: '',
         outboundDepUtc: '08:00',
         outboundArrUtc: '10:00',
         inboundFlightNumber: '',
         inboundOrigin: '',
-        inboundDestination: 'CMB',
+        inboundDestination: '',
         inboundDepUtc: '11:00',
         inboundArrUtc: '13:00',
         daysOfWeek: [],
         seasonStart: '',
         seasonEnd: '',
         color: 'BLUE',
-        inboundArrivesNextDay: false
-    })
-    const [created, setCreated] = useState<RoundTrip | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+        inboundArrivesNextDay: false,
+    });
+
+    const [airports, setAirports] = useState<Airport[]>([]);
+    const [created, setCreated] = useState<RoundTrip | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [seasonPreset, setSeasonPreset] = useState<'NONE' | 'SUMMER' | 'WINTER'>('NONE');
+
+    useEffect(() => {
+        listAirports().then(setAirports).catch(() => { });
+    }, []);
 
     const toggleDay = (d: DayOfWeek) => {
         setPayload(p => ({
             ...p,
-            daysOfWeek: p.daysOfWeek.includes(d) ? p.daysOfWeek.filter(x => x !== d) : [...p.daysOfWeek, d]
-        }))
-    }
+            daysOfWeek: p.daysOfWeek.includes(d) ? p.daysOfWeek.filter(x => x !== d) : [...p.daysOfWeek, d],
+        }));
+    };
 
-    const canSubmit = useMemo(() =>
-        payload.outboundFlightNumber && payload.inboundFlightNumber &&
-        payload.outboundOrigin && payload.outboundDestination &&
-        payload.inboundOrigin && payload.inboundDestination &&
-        payload.seasonStart && payload.seasonEnd && payload.daysOfWeek.length > 0
-        , [payload])
+    const canSubmit = useMemo(
+        () =>
+            payload.outboundFlightNumber &&
+            payload.inboundFlightNumber &&
+            payload.outboundOrigin &&
+            payload.outboundDestination &&
+            payload.inboundOrigin &&
+            payload.inboundDestination &&
+            payload.seasonStart &&
+            payload.seasonEnd &&
+            payload.daysOfWeek.length > 0,
+        [payload]
+    );
+
+    const applySeasonPreset = (preset: 'SUMMER' | 'WINTER') => {
+        const today = new Date();
+        const year = today.getFullYear();
+        if (preset === 'SUMMER') {
+            // Example: IATA SZN roughly late-Mar to late-Oct; adjust to your business rules.
+            setPayload(p => ({ ...p, seasonStart: `${year}-03-31`, seasonEnd: `${year}-10-26` }));
+            setSeasonPreset('SUMMER');
+        } else {
+            // IATA WZN: late-Oct to late-Mar of next year; example boundaries:
+            setPayload(p => ({ ...p, seasonStart: `${year}-10-27`, seasonEnd: `${year + 1}-03-29` }));
+            setSeasonPreset('WINTER');
+        }
+    };
 
     const submit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!canSubmit) return
-        setLoading(true); setError(null); setCreated(null)
+        e.preventDefault();
+        if (!canSubmit) return;
+        setLoading(true); setError(null); setCreated(null);
         try {
-            const res = await createRoundTrip(payload)
-            setCreated(res)
+            const res = await createRoundTrip(payload);
+            setCreated(res);
         } catch (err: unknown) {
             if (typeof err === 'object' && err !== null) {
-                const errorObj = err as { response?: { data?: { message?: string } }, message?: string };
-                setError(errorObj.response?.data?.message ?? errorObj.message ?? 'Failed');
-            } else {
-                setError('Failed');
-            }
+                const eobj = err as { response?: { data?: { message?: string } }, message?: string };
+                setError(eobj.response?.data?.message ?? eobj.message ?? 'Failed');
+            } else setError('Failed');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     const roundTripIcon = (
         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
             <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
         </svg>
-    )
+    );
+
+    const AirportSelect = ({
+        value,
+        onChange,
+        placeholder,
+    }: {
+        value: string;
+        onChange: (v: string) => void;
+        placeholder: string;
+    }) => (
+        <select className="form-input" value={value} onChange={e => onChange(e.target.value)}>
+            <option value="">{placeholder}</option>
+            {airports.map(a => (
+                <option key={a.id} value={a.code}>
+                    {a.code}{a.name ? ` — ${a.name}` : ""}
+                </option>
+            ))}
+        </select>
+    );
 
     return (
         <PageLayout
@@ -87,7 +133,6 @@ export default function RoundTripsPage() {
             icon={roundTripIcon}
         >
             <div className="page-grid">
-                {/* Main Form Section */}
                 <div className="form-section">
                     <div className="section-card">
                         <div className="card-header">
@@ -98,9 +143,9 @@ export default function RoundTripsPage() {
                         </div>
 
                         <form className="aviation-form" onSubmit={submit}>
-                            {/* Flight Sections */}
+                            {/* Flight sections */}
                             <div className="form-sections">
-                                {/* Outbound Flight */}
+                                {/* Outbound */}
                                 <div className="flight-section outbound">
                                     <div className="section-header">
                                         <div className="section-icon">
@@ -110,9 +155,10 @@ export default function RoundTripsPage() {
                                         </div>
                                         <h3>Outbound Flight</h3>
                                         <div className="route-preview">
-                                            {payload.outboundOrigin} → {payload.outboundDestination || '???'}
+                                            {payload.outboundOrigin || '???'} → {payload.outboundDestination || '???'}
                                         </div>
                                     </div>
+
                                     <div className="form-grid compact">
                                         <div className="form-field">
                                             <label className="field-label">
@@ -123,36 +169,35 @@ export default function RoundTripsPage() {
                                                 className="form-input"
                                                 value={payload.outboundFlightNumber}
                                                 onChange={e => setPayload(p => ({ ...p, outboundFlightNumber: e.target.value }))}
-                                                placeholder="UL501"
+                                                placeholder="8D821"
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Origin</span>
                                                 <span className="required-badge">Required</span>
                                             </label>
-                                            <input
-                                                className="form-input"
+                                            <AirportSelect
                                                 value={payload.outboundOrigin}
-                                                onChange={e => setPayload(p => ({ ...p, outboundOrigin: e.target.value.toUpperCase() }))}
-                                                placeholder="CMB"
-                                                required
+                                                onChange={v => setPayload(p => ({ ...p, outboundOrigin: v }))}
+                                                placeholder="Select origin"
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Destination</span>
                                                 <span className="required-badge">Required</span>
                                             </label>
-                                            <input
-                                                className="form-input"
+                                            <AirportSelect
                                                 value={payload.outboundDestination}
-                                                onChange={e => setPayload(p => ({ ...p, outboundDestination: e.target.value.toUpperCase() }))}
-                                                placeholder="DXB"
-                                                required
+                                                onChange={v => setPayload(p => ({ ...p, outboundDestination: v }))}
+                                                placeholder="Select destination"
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Departure (UTC)</span>
@@ -166,6 +211,7 @@ export default function RoundTripsPage() {
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Arrival (UTC)</span>
@@ -182,7 +228,7 @@ export default function RoundTripsPage() {
                                     </div>
                                 </div>
 
-                                {/* Inbound Flight */}
+                                {/* Inbound */}
                                 <div className="flight-section inbound">
                                     <div className="section-header">
                                         <div className="section-icon">
@@ -192,9 +238,10 @@ export default function RoundTripsPage() {
                                         </div>
                                         <h3>Inbound Flight</h3>
                                         <div className="route-preview">
-                                            {payload.inboundOrigin || '???'} → {payload.inboundDestination}
+                                            {payload.inboundOrigin || '???'} → {payload.inboundDestination || '???'}
                                         </div>
                                     </div>
+
                                     <div className="form-grid compact">
                                         <div className="form-field">
                                             <label className="field-label">
@@ -205,36 +252,35 @@ export default function RoundTripsPage() {
                                                 className="form-input"
                                                 value={payload.inboundFlightNumber}
                                                 onChange={e => setPayload(p => ({ ...p, inboundFlightNumber: e.target.value }))}
-                                                placeholder="UL502"
+                                                placeholder="8D822"
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Origin</span>
                                                 <span className="required-badge">Required</span>
                                             </label>
-                                            <input
-                                                className="form-input"
+                                            <AirportSelect
                                                 value={payload.inboundOrigin}
-                                                onChange={e => setPayload(p => ({ ...p, inboundOrigin: e.target.value.toUpperCase() }))}
-                                                placeholder="DXB"
-                                                required
+                                                onChange={v => setPayload(p => ({ ...p, inboundOrigin: v }))}
+                                                placeholder="Select origin"
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Destination</span>
                                                 <span className="required-badge">Required</span>
                                             </label>
-                                            <input
-                                                className="form-input"
+                                            <AirportSelect
                                                 value={payload.inboundDestination}
-                                                onChange={e => setPayload(p => ({ ...p, inboundDestination: e.target.value.toUpperCase() }))}
-                                                placeholder="CMB"
-                                                required
+                                                onChange={v => setPayload(p => ({ ...p, inboundDestination: v }))}
+                                                placeholder="Select destination"
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Departure (UTC)</span>
@@ -248,6 +294,7 @@ export default function RoundTripsPage() {
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Arrival (UTC)</span>
@@ -261,6 +308,7 @@ export default function RoundTripsPage() {
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field full-width">
                                             <label className="checkbox-label">
                                                 <input
@@ -304,6 +352,23 @@ export default function RoundTripsPage() {
                                 <div className="section-card">
                                     <div className="section-header">
                                         <h3>Season Dates</h3>
+                                        <div className="season-presets">
+                                            <label>Preset:&nbsp;</label>
+                                            <button
+                                                type="button"
+                                                className={`day-chip ${seasonPreset === 'SUMMER' ? 'active' : ''}`}
+                                                onClick={() => applySeasonPreset('SUMMER')}
+                                            >
+                                                Summer
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`day-chip ${seasonPreset === 'WINTER' ? 'active' : ''}`}
+                                                onClick={() => applySeasonPreset('WINTER')}
+                                            >
+                                                Winter
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="form-grid compact">
                                         <div className="form-field">
@@ -319,6 +384,7 @@ export default function RoundTripsPage() {
                                                 required
                                             />
                                         </div>
+
                                         <div className="form-field">
                                             <label className="field-label">
                                                 <span className="label-text">Season End</span>
@@ -351,7 +417,7 @@ export default function RoundTripsPage() {
                                                     className={`color-chip ${payload.color === c ? 'active' : ''}`}
                                                     style={{
                                                         backgroundColor: COLOR_MAP[c].bg,
-                                                        color: COLOR_MAP[c].text
+                                                        color: COLOR_MAP[c].text,
                                                     }}
                                                     onClick={() => setPayload(p => ({ ...p, color: c }))}
                                                 >
@@ -363,13 +429,9 @@ export default function RoundTripsPage() {
                                 </div>
                             </div>
 
-                            {/* Action Section */}
+                            {/* Action */}
                             <div className="form-actions">
-                                <button
-                                    className={`submit-button large ${loading ? 'loading' : ''}`}
-                                    type="submit"
-                                    disabled={!canSubmit || loading}
-                                >
+                                <button className={`submit-button large ${loading ? 'loading' : ''}`} type="submit" disabled={!canSubmit || loading}>
                                     {loading ? (
                                         <>
                                             <div className="button-spinner"></div>
@@ -387,7 +449,7 @@ export default function RoundTripsPage() {
                             </div>
                         </form>
 
-                        {/* Status Messages */}
+                        {/* Status */}
                         {created && (
                             <div className="status-message success">
                                 <div className="message-icon">
@@ -421,5 +483,5 @@ export default function RoundTripsPage() {
                 </div>
             </div>
         </PageLayout>
-    )
+    );
 }
